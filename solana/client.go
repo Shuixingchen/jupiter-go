@@ -148,6 +148,48 @@ func (e client) GetTokenAccountBalance(ctx context.Context, tokenAccount string)
 	}, nil
 }
 
+// GetSPLTokenBalance 获取指定钱包地址下特定SPL代币的余额
+func (e client) GetSPLTokenBalance(ctx context.Context, walletAddress, tokenMint string) (TokenAccount, error) {
+	// 将钱包地址转换为PublicKey
+	walletPk, err := solana.PublicKeyFromBase58(walletAddress)
+	if err != nil {
+		return TokenAccount{}, fmt.Errorf("无法解析钱包地址: %w", err)
+	}
+
+	// 将代币Mint地址转换为PublicKey
+	mintPk, err := solana.PublicKeyFromBase58(tokenMint)
+	if err != nil {
+		return TokenAccount{}, fmt.Errorf("无法解析代币Mint地址: %w", err)
+	}
+
+	// 获取关联代币账户地址
+	tokenAccountPk, _, err := solana.FindAssociatedTokenAddress(walletPk, mintPk)
+	if err != nil {
+		return TokenAccount{}, fmt.Errorf("无法获取关联代币账户地址: %w", err)
+	}
+
+	// 获取代币账户余额
+	resp, err := e.clientRPC.GetTokenAccountBalance(ctx, tokenAccountPk, rpc.CommitmentFinalized)
+	if err != nil {
+		return TokenAccount{}, fmt.Errorf("无法获取代币账户余额: %w", err)
+	}
+
+	if resp.Value == nil {
+		return TokenAccount{}, fmt.Errorf("获取代币账户余额失败: 返回值为空")
+	}
+
+	// 将余额字符串转换为decimal类型
+	value, err := decimal.NewFromString(resp.Value.Amount)
+	if err != nil {
+		return TokenAccount{}, fmt.Errorf("无法将代币余额转换为decimal类型: %w", err)
+	}
+
+	return TokenAccount{
+		Amount:   value,
+		Decimals: resp.Value.Decimals,
+	}, nil
+}
+
 // Close closes the client.
 func (e client) Close() error {
 	if e.clientRPC != nil {

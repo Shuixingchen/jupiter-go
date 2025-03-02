@@ -34,6 +34,8 @@ type Client interface {
 	SendTransactionOnChain(context.Context, string) (TxID, error)
 	CheckSignature(context.Context, TxID) (bool, error)
 	GetTokenAccountBalance(context.Context, string) (TokenAccount, error)
+	// GetSPLTokenBalance(context.Context, walletAddress, tokenMint string) (TokenAccount, error)
+	GetSPLTokenBalance(ctx context.Context, walletAddress, tokenMint string) (TokenAccount, error)
 }
 
 type subscriberService interface {
