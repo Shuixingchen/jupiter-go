@@ -37,14 +37,14 @@ func main() {
 
 	ctx := context.TODO()
 
-	slippageBps := 250
+	slippageBps := float32(250.0)
 
 	// Get the current quote for a swap.
 	// Ensure that the input and output mints are valid.
 	// The amount is the smallest unit of the input token.
 	quoteResponse, err := jupClient.GetQuoteWithResponse(ctx, &jupiter.GetQuoteParams{
 		InputMint:   "So11111111111111111111111111111111111111112",
-		OutputMint:  "WENWENvqqNya429ubCdR81ZmD69brwQaaBYY6p3LCpk",
+		OutputMint:  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
 		Amount:      100000,
 		SlippageBps: &slippageBps,
 	})
@@ -52,17 +52,35 @@ func main() {
 	
 	quote := quoteResponse.JSON200
 
-	// More info: https://station.jup.ag/docs/apis/troubleshooting
-	prioritizationFeeLamports := jupiter.SwapRequest_PrioritizationFeeLamports{}
-	if err = prioritizationFeeLamports.UnmarshalJSON([]byte(`"auto"`)); err != nil {
-		// handle the error
+	// Define the prioritization fee in lamports.
+	prioritizationFeeLamports := &struct {
+		JitoTipLamports              *int `json:"jitoTipLamports,omitempty"`
+		PriorityLevelWithMaxLamports *struct {
+			MaxLamports   *int    `json:"maxLamports,omitempty"`
+			PriorityLevel *string `json:"priorityLevel,omitempty"`
+		} `json:"priorityLevelWithMaxLamports,omitempty"`
+	}{
+		PriorityLevelWithMaxLamports: &struct {
+			MaxLamports   *int    `json:"maxLamports,omitempty"`
+			PriorityLevel *string `json:"priorityLevel,omitempty"`
+		}{
+			MaxLamports:   new(int),
+			PriorityLevel: new(string),
+		},
 	}
+
+	*prioritizationFeeLamports.PriorityLevelWithMaxLamports.MaxLamports = 1000
+	*prioritizationFeeLamports.PriorityLevelWithMaxLamports.PriorityLevel = "high"
+
+	// If you prefer to set a Jito tip, you can use the following line instead of the above block.
+	// Look at _examples/jitoswap/main.go for more details.
+	// *prioritizationFeeLamports.JitoTipLamports = 1000
 
 	dynamicComputeUnitLimit := true
 	// Get instructions for a swap.
 	// Ensure your public key is valid.
 	swapResponse, err := jupClient.PostSwapWithResponse(ctx, jupiter.PostSwapJSONRequestBody{
-		PrioritizationFeeLamports: &prioritizationFeeLamports,
+		PrioritizationFeeLamports: prioritizationFeeLamports,
 		QuoteResponse:             *quote,
 		UserPublicKey:             "{YOUR_PUBLIC_KEY}",
 		DynamicComputeUnitLimit:   &dynamicComputeUnitLimit,
@@ -115,7 +133,7 @@ func main() {
 }
 ```
 
-A full swap example is available in the [examples/swap](_examples/swap) folder.
+A full swap example is available in the [examples/swap](_examples/swap) folder. For a swap with Jito tips, check the [examples/jitoswap](_examples/jitoswap) folder.
 
 A transaction monitoring example using websocket is available in the [examples/txmonitor](_examples/txmonitor) folder.
 
@@ -124,13 +142,6 @@ A transaction monitoring example using websocket is available in the [examples/t
 The Jupiter client is generated from the [official Jupiter openapi definition](https://github.com/jup-ag/jupiter-quote-api-node/blob/main/swagger.yaml) and provides the following methods to interact with the Jupiter API:
 
 ```go
-// GetIndexedRouteMapWithResponse request
-GetIndexedRouteMapWithResponse(
-	ctx context.Context, 
-	params *GetIndexedRouteMapParams, 
-	reqEditors ...RequestEditorFn, 
-) (*GetIndexedRouteMapResponse, error)
-
 // GetProgramIdToLabelWithResponse request
 GetProgramIdToLabelWithResponse(
 	ctx context.Context, 
@@ -171,11 +182,6 @@ PostSwapInstructionsWithResponse(
 	body PostSwapInstructionsJSONRequestBody, 
 	reqEditors ...RequestEditorFn, 
 ) (*PostSwapInstructionsResponse, error)
-
-GetTokensWithResponse(
-	ctx context.Context, 
-	reqEditors ...RequestEditorFn, 
-) (*GetTokensResponse, error)
 ```
 
 ## Solana client
@@ -218,13 +224,10 @@ WaitForCommitmentStatus(
 ) (MonitorResponse, error)
 ```
 
-## API URLs
-
-This library provides two options to leverage for Jupiter APIs. 
-
-The default Jupiter API provided by the official Jupiter team can be used via `jupiter.DefaultAPIURL`.
-
-The second Jupiter API option leverages [jupiterapi.com](https://www.jupiterapi.com/) (Community Project). This endpoint provides higher rate limits, but *includes a small 0.2% platform fee*. This API can be used via `jupiter.JupiterAPIURL`.
+## Notes
+- Starting with **v0.1.0**, _jupiter-go_ supports the new Jupiter API as documented at [station.jup.ag/docs](https://station.jup.ag/docs/).
+  - It supports both **prioritization fee** and **Jito tips**.
+- For those who need to use the legacy API, **v0.0.24** is the final version supporting it. Note that legacy Jupiter API hostnames will be fully deprecated on **June 1, 2025**.
 
 ## Contribute
 
@@ -239,3 +242,7 @@ This library is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you find this library useful and want to support its development, consider donating some JUP/Solana to the following address:
 
 `BXzmfHxfEMcMj8hDccUNdrwXVNeybyfb2iV2nktE1VnJ`
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Shuixingchen/jupiter-go&type=Date)](https://www.star-history.com/#Shuixingchen/jupiter-go&Date)
